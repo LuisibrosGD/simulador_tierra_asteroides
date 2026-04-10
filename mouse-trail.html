@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estela de Mouse Colorida</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            overflow: hidden;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            height: 100vh;
+            cursor: crosshair;
+        }
+
+        canvas {
+            display: block;
+            position: fixed;
+            top: 0;
+            left: 0;
+        }
+
+        .instruction {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: rgba(255, 255, 255, 0.3);
+            font-family: 'Arial', sans-serif;
+            font-size: 24px;
+            pointer-events: none;
+            text-align: center;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+    <div class="instruction">Mueve el mouse para ver la magia ✨</div>
+    <canvas id="canvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        let particles = [];
+        let hue = 0;
+
+        class Particle {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.size = Math.random() * 15 + 5;
+                this.speedX = Math.random() * 6 - 3;
+                this.speedY = Math.random() * 6 - 3;
+                this.hue = hue;
+                this.life = 100;
+                this.maxLife = 100;
+                this.gravity = 0.1;
+                this.friction = 0.98;
+            }
+
+            update() {
+                this.speedY += this.gravity;
+                this.speedX *= this.friction;
+                this.speedY *= this.friction;
+                this.x += this.speedX;
+                this.y += this.speedY;
+                this.life--;
+                this.size *= 0.96;
+            }
+
+            draw() {
+                const alpha = this.life / this.maxLife;
+                
+                // Crear gradiente radial para cada partícula
+                const gradient = ctx.createRadialGradient(
+                    this.x, this.y, 0,
+                    this.x, this.y, this.size
+                );
+                
+                gradient.addColorStop(0, `hsla(${this.hue}, 100%, 70%, ${alpha})`);
+                gradient.addColorStop(0.5, `hsla(${this.hue + 30}, 100%, 60%, ${alpha * 0.8})`);
+                gradient.addColorStop(1, `hsla(${this.hue + 60}, 100%, 50%, 0)`);
+
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = gradient;
+                ctx.fill();
+
+                // Añadir brillo adicional
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = `hsla(${this.hue}, 100%, 60%, ${alpha})`;
+            }
+        }
+
+        class Sparkle {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.size = Math.random() * 3 + 1;
+                this.angle = Math.random() * Math.PI * 2;
+                this.speed = Math.random() * 8 + 4;
+                this.hue = hue;
+                this.life = 60;
+                this.maxLife = 60;
+            }
+
+            update() {
+                this.x += Math.cos(this.angle) * this.speed;
+                this.y += Math.sin(this.angle) * this.speed;
+                this.speed *= 0.95;
+                this.life--;
+            }
+
+            draw() {
+                const alpha = this.life / this.maxLife;
+                
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.angle + Math.PI / 4);
+                
+                // Dibujar forma de estrella
+                ctx.beginPath();
+                for (let i = 0; i < 4; i++) {
+                    ctx.lineTo(Math.cos((i * Math.PI / 2)) * this.size * 2, 
+                              Math.sin((i * Math.PI / 2)) * this.size * 2);
+                    ctx.lineTo(Math.cos((i * Math.PI / 2 + Math.PI / 4)) * this.size, 
+                              Math.sin((i * Math.PI / 2 + Math.PI / 4)) * this.size);
+                }
+                ctx.closePath();
+                
+                ctx.fillStyle = `hsla(${this.hue}, 100%, 80%, ${alpha})`;
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = `hsla(${this.hue}, 100%, 70%, ${alpha})`;
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        let sparkles = [];
+        let lastMouseX = 0;
+        let lastMouseY = 0;
+
+        function handleParticles() {
+            for (let i = 0; i < particles.length; i++) {
+                particles[i].update();
+                particles[i].draw();
+
+                if (particles[i].life <= 0 || particles[i].size <= 0.5) {
+                    particles.splice(i, 1);
+                    i--;
+                }
+            }
+
+            for (let i = 0; i < sparkles.length; i++) {
+                sparkles[i].update();
+                sparkles[i].draw();
+
+                if (sparkles[i].life <= 0) {
+                    sparkles.splice(i, 1);
+                    i--;
+                }
+            }
+        }
+
+        canvas.addEventListener('mousemove', function(e) {
+            const mouseX = e.clientX;
+            const mouseY = e.clientY;
+            
+            // Calcular velocidad del mouse
+            const speed = Math.sqrt(Math.pow(mouseX - lastMouseX, 2) + Math.pow(mouseY - lastMouseY, 2));
+            
+            // Más partículas si el mouse se mueve rápido
+            const particleCount = Math.min(Math.floor(speed / 2) + 2, 8);
+            
+            for (let i = 0; i < particleCount; i++) {
+                particles.push(new Particle(mouseX, mouseY));
+            }
+            
+            // Añadir chispas ocasionalmente
+            if (speed > 5 && Math.random() > 0.7) {
+                sparkles.push(new Sparkle(mouseX, mouseY));
+            }
+            
+            lastMouseX = mouseX;
+            lastMouseY = mouseY;
+            hue += 2; // Cambiar color gradualmente
+        });
+
+        // Soporte para touch en dispositivos móviles
+        canvas.addEventListener('touchmove', function(e) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const mouseX = touch.clientX;
+            const mouseY = touch.clientY;
+            
+            for (let i = 0; i < 3; i++) {
+                particles.push(new Particle(mouseX, mouseY));
+            }
+            
+            hue += 2;
+        }, { passive: false });
+
+        canvas.addEventListener('touchstart', function(e) {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const mouseX = touch.clientX;
+            const mouseY = touch.clientY;
+            
+            for (let i = 0; i < 10; i++) {
+                particles.push(new Particle(mouseX, mouseY));
+                sparkles.push(new Sparkle(mouseX, mouseY));
+            }
+            
+            hue += 10;
+        }, { passive: false });
+
+        // Ajustar canvas al redimensionar ventana
+        window.addEventListener('resize', function() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+
+        function animate() {
+            // Efecto de desvanecimiento suave
+            ctx.fillStyle = 'rgba(26, 26, 46, 0.1)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            handleParticles();
+            
+            // Resetear shadowBlur para no afectar el fondo
+            ctx.shadowBlur = 0;
+            
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+    </script>
+</body>
+</html>
